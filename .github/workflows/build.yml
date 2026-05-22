@@ -28,8 +28,9 @@ env:
 jobs:
   build-and-push:
     name: "Build chainguard/ingress-nginx@${{ matrix.app_version }} | ${{ matrix.chart_version }}"
-    runs-on: ubicloud-standard-4
+    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - app_version: '1.11.5'
@@ -151,10 +152,22 @@ jobs:
           DOCKERHUB_PREFIX: ${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKER_ORG }}
           GHCR_PREFIX: ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_ORG }}
         run: |
+          set -euo pipefail
           for IMAGE in controller controller-chroot; do
-            docker buildx imagetools create \
-              --tag ${GHCR_PREFIX}/ingress-nginx-${IMAGE}:${TAG} \
-              ${{ env.DOCKER_ORG }}/${IMAGE}:${TAG}
+            SRC="${{ env.DOCKER_ORG }}/${IMAGE}:${TAG}"
+            DST="${GHCR_PREFIX}/ingress-nginx-${IMAGE}:${TAG}"
+            for attempt in 1 2 3 4 5; do
+              if docker buildx imagetools create --tag "${DST}" "${SRC}"; then
+                break
+              fi
+              if [ "${attempt}" -eq 5 ]; then
+                echo "Mirror to GHCR failed after ${attempt} attempts" >&2
+                exit 1
+              fi
+              sleep_for=$((30 * attempt))
+              echo "Attempt ${attempt} failed (likely Docker Hub 429); retrying in ${sleep_for}s..." >&2
+              sleep "${sleep_for}"
+            done
           done
       
       - name: Install Helm
