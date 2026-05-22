@@ -37,6 +37,9 @@ jobs:
           - app_version: '1.11.5'
             chart_version: '4.11.5'
             upstream_chart_tag: 'helm-chart-4.11.5'
+          - app_version: '1.11.8'
+            chart_version: '4.11.8'
+            upstream_chart_tag: 'helm-chart-4.11.8'
           - app_version: '1.12.1'
             chart_version: '4.12.1'
             upstream_chart_tag: 'helm-chart-4.12.1'
@@ -58,6 +61,9 @@ jobs:
           - app_version: '1.13.4'
             chart_version: '4.13.4'
             upstream_chart_tag: 'helm-chart-4.13.4'
+          - app_version: '1.13.9'
+            chart_version: '4.13.9'
+            upstream_chart_tag: 'helm-chart-4.13.9'
           - app_version: '1.14.0'
             chart_version: '4.14.0'
             upstream_chart_tag: 'helm-chart-4.14.0'
@@ -82,6 +88,9 @@ jobs:
           - app_version: '1.15.1'
             chart_version: '4.15.1'
             upstream_chart_tag: 'helm-chart-4.15.1'
+          - app_version: '1.15.5'
+            chart_version: '4.15.5'
+            upstream_chart_tag: 'helm-chart-4.15.5'
     permissions:
       contents: read
       packages: write
@@ -92,12 +101,24 @@ jobs:
         with:
           repository: ${{ env.FORK_REPO }}
           ref: ${{ matrix.upstream_chart_tag }}
-        
+
+      - name: Configure Docker registry mirror
+        run: |
+          sudo mkdir -p /etc/docker
+          echo '{"registry-mirrors": ["https://mirror.gcr.io"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-        
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:buildx-stable-1
+          config-inline: |
+            [registry."docker.io"]
+              mirrors = ["mirror.gcr.io"]
         
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
