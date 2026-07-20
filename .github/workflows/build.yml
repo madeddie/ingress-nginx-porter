@@ -120,19 +120,19 @@ jobs:
             [registry."docker.io"]
               mirrors = ["mirror.gcr.io"]
         
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      #- name: Log in to Docker Hub
+      #  uses: docker/login-action@v3
+      #  with:
+      #    registry: docker.io
+      #    username: ${{ secrets.DOCKERHUB_USERNAME }}
+      #    password: ${{ secrets.DOCKERHUB_PASSWORD }}
       
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      #- name: Log in to GHCR
+      #  uses: docker/login-action@v3
+      #  with:
+      #    registry: ghcr.io
+      #    username: ${{ github.actor }}
+      #    password: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Extract metadata
         id: meta
@@ -172,6 +172,11 @@ jobs:
           docker tag "mirror.gcr.io/library/${IMAGE}" "${IMAGE}"
           docker tag "mirror.gcr.io/library/${IMAGE}" "docker.io/library/${IMAGE}"
 
+      - name: Build NGINX Base image
+        run: |
+            export TAG=$(cat images/nginx/TAG)
+            cd images/nginx/rootfs && docker buildx build --load -t registry.k8s.io/ingress-nginx/nginx:${TAG} .        
+
       - name: Build and push images to Docker Hub
         env:
           TAG: ${{ steps.meta.outputs.version }}
@@ -179,8 +184,9 @@ jobs:
         run: |
           echo "Building from fork: ${{ env.FORK_REPO }}@${{ matrix.upstream_chart_tag }}"
           echo "Pushing to: ${REGISTRY}"
+          export BASE_IMAGE=registry.k8s.io/ingress-nginx/nginx:$(cat images/nginx/TAG)
           
-          make release
+          make BASE_IMAGE=${BASE_IMAGE} release
       
       - name: Install crane
         uses: imjasonh/setup-crane@v0.4
